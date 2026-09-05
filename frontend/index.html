@@ -1,1 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChitPro — Chit Fund Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root{
+    --ink:#1B1F3B;
+    --ink-2:#2A2F55;
+    --cream:#FBF7EF;
+    --card:#FFFFFF;
+    --line:#E8E2D4;
+    --gold:#F0A93A;
+    --gold-dark:#8A5A0B;
+    --gold-tint:#FDF0DA;
+    --vermillion:#E4572E;
+    --vermillion-dark:#7E2A14;
+    --vermillion-tint:#FCE7DF;
+    --emerald:#1FA97B;
+    --emerald-dark:#0D5F45;
+    --emerald-tint:#DEF5EC;
+    --azure:#2E6FB0;
+    --azure-dark:#153F66;
+    --azure-tint:#E1EEF9;
+    --text:#26283A;
+    --text-soft:#63667C;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--cream);color:var(--text);}
+  h1,h2,h3,.brand,.nav-label{font-family:'Baloo 2',sans-serif;}
+  .app{display:flex;min-height:100vh;}
 
+  /* Sidebar */
+  .sidebar{width:230px;background:var(--ink);color:#EDEBFB;flex-shrink:0;display:flex;flex-direction:column;padding:20px 14px;}
+  .brand{font-size:22px;font-weight:700;color:var(--gold);letter-spacing:.2px;padding:4px 10px 22px;}
+  .brand span{color:#EDEBFB;}
+  .navgroup{margin-bottom:18px;}
+  .navgroup-title{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#8C90B8;padding:0 10px 6px;}
+  .navitem{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:14.5px;color:#CFCEEE;cursor:pointer;margin-bottom:2px;transition:background .15s;}
+  .navitem:hover{background:rgba(255,255,255,.06);}
+  .navitem.active{background:var(--gold);color:var(--ink);font-weight:600;}
+  .navitem .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.55;flex-shrink:0;}
+  .mode-switch{margin-top:auto;display:flex;background:rgba(255,255,255,.08);border-radius:10px;padding:3px;}
+  .mode-btn{flex:1;text-align:center;padding:7px 0;border-radius:8px;font-size:13px;cursor:pointer;color:#CFCEEE;}
+  .mode-btn.active{background:var(--emerald);color:#fff;font-weight:600;}
+
+  /* Main */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--line);background:var(--card);}
+  .topbar h1{font-size:20px;margin:0;font-weight:600;}
+  .topbar .sub{font-size:13px;color:var(--text-soft);margin-top:2px;font-family:'Inter';}
+  .search{display:flex;align-items:center;gap:8px;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:13.5px;color:var(--text-soft);width:230px;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .avatar{width:36px;height:36px;border-radius:50%;background:var(--gold);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;font-family:'Baloo 2';}
+  .content{padding:24px 28px 60px;overflow-y:auto;}
+  .page{display:none;}
+  .page.active{display:block;}
+
+  /* Cards / grid */
+  .grid{display:grid;gap:16px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr);} .grid-3{grid-template-columns:repeat(2,1fr);}}
+
+  .stat-card{background:var(--card);border-radius:var(--radius);padding:18px 18px;border:1px solid var(--line);position:relative;overflow:hidden;}
+  .stat-card .icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px;}
+  .stat-card .label{font-size:13px;color:var(--text-soft);margin-bottom:4px;}
+  .stat-card .value{font-size:24px;font-weight:700;font-family:'Baloo 2';}
+  .stat-card .delta{font-size:12px;margin-top:6px;font-weight:600;}
+  .tint-gold{background:var(--gold-tint);color:var(--gold-dark);}
+  .tint-vermillion{background:var(--vermillion-tint);color:var(--vermillion-dark);}
+  .tint-emerald{background:var(--emerald-tint);color:var(--emerald-dark);}
+  .tint-azure{background:var(--azure-tint);color:var(--azure-dark);}
+
+  .panel{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);padding:20px;}
+  .panel h3{margin:0 0 14px;font-size:16px;font-weight:600;}
+  .section-title{font-size:15px;font-weight:600;margin:28px 0 12px;font-family:'Baloo 2';color:var(--ink-2);}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--text-soft);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line);font-size:12.5px;text-transform:none;}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);}
+  tr:last-child td{border-bottom:none;}
+
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+  .badge.paid{background:var(--emerald-tint);color:var(--emerald-dark);}
+  .badge.pending{background:var(--gold-tint);color:var(--gold-dark);}
+  .badge.overdue{background:var(--vermillion-tint);color:var(--vermillion-dark);}
+  .badge.live{background:var(--vermillion);color:#fff;}
+  .badge.active{background:var(--azure-tint);color:var(--azure-dark);}
+
+  .btn{border:none;border-radius:10px;padding:9px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter';}
+  .btn-gold{background:var(--gold);color:var(--ink);}
+  .btn-outline{background:transparent;border:1px solid var(--line);color:var(--text);}
+  .btn-ink{background:var(--ink);color:#fff;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .tabs{display:flex;gap:6px;background:var(--cream);border:1px solid var(--line);padding:4px;border-radius:10px;width:fit-content;}
+  .tab{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-soft);}
+  .tab.active{background:var(--ink);color:#fff;}
+
+  /* Live auction */
+  .auction-stage{background:var(--ink);border-radius:18px;padding:26px;color:#fff;position:relative;overflow:hidden;}
+  .auction-stage::before{content:"";position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(240,169,58,.25),transparent 70%);}
+  .live-tag{display:inline-flex;align-items:center;gap:6px;background:var(--vermillion);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.4px;}
+  .live-tag .pulse{width:7px;height:7px;background:#fff;border-radius:50%;animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .auction-value{font-size:38px;font-weight:700;font-family:'Baloo 2';color:var(--gold);margin:14px 0 2px;}
+  .bid-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:14px;}
+  .bid-row:last-child{border-bottom:none;}
+  .bid-rank{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;}
+  .bid-rank.top{background:var(--gold);color:var(--ink);}
+
+  /* Customer view */
+  .welcome-banner{background:linear-gradient(120deg,var(--ink),var(--ink-2));color:#fff;border-radius:18px;padding:24px;margin-bottom:20px;}
+  .welcome-banner .greet{font-size:20px;font-weight:600;font-family:'Baloo 2';}
+  .welcome-banner .greet span{color:var(--gold);}
+  .chit-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;}
+  .chit-card .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+  .progress{height:7px;background:var(--line);border-radius:10px;overflow:hidden;margin-top:10px;}
+  .progress > div{height:100%;background:var(--emerald);}
+
+  .permission-table td, .permission-table th{text-align:center;}
+  .permission-table td:first-child,.permission-table th:first-child{text-align:left;}
+
+  .login-screen{position:fixed;inset:0;background:var(--ink);display:flex;align-items:center;justify-content:center;z-index:100;}
+  .login-card{background:var(--card);width:360px;border-radius:18px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .login-card h2{margin:0 0 4px;font-size:22px;}
+  .login-card .muted{color:var(--text-soft);font-size:13px;margin-bottom:20px;}
+  .login-card label{font-size:12.5px;color:var(--text-soft);display:block;margin:14px 0 6px;}
+  .login-card input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);font-size:14px;font-family:'Inter';}
+  .login-card .err{color:var(--vermillion-dark);font-size:12.5px;margin-top:8px;min-height:16px;}
+  .login-tabs{display:flex;gap:6px;background:var(--cream);border:1px solid var(--line);padding:4px;border-radius:10px;margin-bottom:6px;}
+  .login-tabs .tab{flex:1;text-align:center;}
+  .api-config{position:fixed;bottom:10px;right:10px;font-size:11px;color:#8C90B8;z-index:101;}
+  .api-config input{background:transparent;border:1px solid rgba(255,255,255,.2);color:#CFCEEE;border-radius:6px;padding:3px 6px;font-size:11px;width:190px;}
+
+  .hamburger{display:none;background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink);padding:4px 8px;line-height:1;}
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:59;}
+  .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .table-scroll table{min-width:560px;}
+
+  /* ===== Tablet ===== */
+  @media (max-width: 1024px){
+    .grid-4{grid-template-columns:repeat(2,1fr);}
+    .grid-3{grid-template-columns:repeat(2,1fr);}
+    .sidebar{width:200px;}
+  }
+
+  /* ===== Mobile ===== */
+  @media (max-width: 768px){
+    .hamburger{display:inline-block;}
+    .app{display:block;}
+    .sidebar{
+      position:fixed;top:0;left:0;bottom:0;z-index:60;
+      transform:translateX(-100%);transition:transform .2s ease;
+      width:230px;
+    }
+    .sidebar.open{transform:translateX(0);}
+    .sidebar-overlay.open{display:block;}
+    .main{width:100%;}
+    .topbar{padding:12px 16px;flex-wrap:wrap;gap:10px;}
+    .topbar h1{font-size:17px;}
+    .search{display:none;}
+    .topbar-right{gap:10px;}
+    #logoutBtn{padding:6px 10px;font-size:12.5px;}
+    .content{padding:16px 14px 40px;}
+    .grid-4,.grid-3,.grid-2{grid-template-columns:1fr;}
+    .panel{padding:14px;}
+    .auction-stage{padding:18px;}
+    .auction-value{font-size:30px;}
+    .toolbar{flex-direction:column;align-items:stretch;}
+    .toolbar > *{width:100%;}
+    .tabs{width:100%;overflow-x:auto;}
+    .login-card{width:92vw;max-width:360px;padding:24px;}
+    .api-config{display:none;}
+    .welcome-banner{padding:18px;}
+  }
+
+  @media (max-width: 420px){
+    .stat-card .value{font-size:20px;}
+    .auction-value{font-size:24px;}
+    .brand{font-size:19px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="brand" style="padding:0 0 6px;">Chit<span style="color:var(--ink)">Pro</span></div>
+    <h2>Sign in</h2>
+    <div class="muted">Manage your chit fund business.</div>
+    <div class="login-tabs">
+      <div class="tab active" id="tabAdminLogin">Admin / staff</div>
+      <div class="tab" id="tabCustomerLogin">Customer OTP</div>
+    </div>
+
+    <div id="adminLoginForm">
+      <label>Mobile number</label>
+      <input type="text" id="adminMobile" placeholder="9999999999" value="9999999999">
+      <label>Password</label>
+      <input type="password" id="adminPassword" placeholder="Enter password">
+      <button class="btn btn-gold" style="width:100%;margin-top:18px;" id="adminLoginBtn">Sign in</button>
+    </div>
+
+    <div id="customerLoginForm" style="display:none;">
+      <label>Mobile number</label>
+      <input type="text" id="custMobile" placeholder="98410 23456">
+      <button class="btn btn-outline" style="width:100%;margin-top:12px;" id="sendOtpBtn">Send OTP</button>
+      <div id="otpStep" style="display:none;">
+        <label>Enter OTP</label>
+        <input type="text" id="custOtp" placeholder="6-digit code">
+        <button class="btn btn-gold" style="width:100%;margin-top:12px;" id="verifyOtpBtn">Verify and sign in</button>
+      </div>
+    </div>
+
+    <div class="err" id="loginError"></div>
+    <div class="muted" style="margin-top:10px;">Demo mode works without a backend — <span id="demoModeLink" style="color:var(--azure);cursor:pointer;text-decoration:underline;">continue with sample data</span>.</div>
+  </div>
+</div>
+<div class="api-config">
+  API: <input id="apiBaseInput" value="http://localhost:4000/api">
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
+
+  <div class="sidebar" id="adminSidebar">
+    <div class="brand">Chit<span>Pro</span></div>
+
+    <div class="navgroup">
+      <div class="navgroup-title">Overview</div>
+      <div class="navitem active" data-page="dashboard"><span class="dot"></span>Dashboard</div>
+    </div>
+    <div class="navgroup">
+      <div class="navgroup-title">Operations</div>
+      <div class="navitem" data-page="members"><span class="dot"></span>Members</div>
+      <div class="navitem" data-page="chits"><span class="dot"></span>Chits</div>
+      <div class="navitem" data-page="auctions"><span class="dot"></span>Auctions</div>
+      <div class="navitem" data-page="payments"><span class="dot"></span>Payments</div>
+      <div class="navitem" data-page="dues"><span class="dot"></span>Dues</div>
+      <div class="navitem" data-page="payouts"><span class="dot"></span>Payouts</div>
+    </div>
+    <div class="navgroup">
+      <div class="navgroup-title">Manage</div>
+      <div class="navitem" data-page="reports"><span class="dot"></span>Reports</div>
+      <div class="navitem" data-page="settings"><span class="dot"></span>Settings</div>
+    </div>
+
+    <div class="mode-switch">
+      <div class="mode-btn active" id="btnAdminMode">Admin</div>
+      <div class="mode-btn" id="btnCustomerMode">Customer</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="hamburger" id="hamburgerBtn">☰</button>
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <div class="sub" id="pageSub">Today, 5 Sep 2026</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="search">🔍 Search members, chits...</div>
+        <div class="avatar" id="userAvatar">RA</div>
+        <button class="btn btn-outline" id="logoutBtn" style="padding:7px 12px;">Logout</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="grid grid-4" style="margin-bottom:22px;">
+          <div class="stat-card"><div class="icon tint-gold">💰</div><div class="label">Total chits</div><div class="value" id="statTotalChits">128</div><div class="delta" style="color:var(--emerald-dark)">Live from API</div></div>
+          <div class="stat-card"><div class="icon tint-azure">👥</div><div class="label">Total members</div><div class="value" id="statTotalMembers">1,942</div><div class="delta" style="color:var(--emerald-dark)">Live from API</div></div>
+          <div class="stat-card"><div class="icon tint-emerald">📥</div><div class="label">Today's collection</div><div class="value" id="statTodayCollection">₹4,82,000</div><div class="delta" style="color:var(--emerald-dark)">On target</div></div>
+          <div class="stat-card"><div class="icon tint-vermillion">⏰</div><div class="label">Pending dues</div><div class="value" id="statPendingDues">₹18,60,000</div><div class="delta" style="color:var(--vermillion-dark)" id="statPendingDueMembers">312 members</div></div>
+        </div>
+
+        <div class="grid grid-2" style="align-items:start;">
+          <div class="panel">
+            <h3>Live auctions right now</h3>
+            <div class="table-scroll"><table>
+              <tr><th>Chit</th><th>Round</th><th>Current bid</th><th>Status</th></tr>
+              <tr><td>CHIT-001</td><td>08</td><td>₹1,20,000</td><td><span class="badge live">Live</span></td></tr>
+              <tr><td>CHIT-014</td><td>03</td><td>₹65,500</td><td><span class="badge live">Live</span></td></tr>
+              <tr><td>CHIT-027</td><td>11</td><td>₹2,10,000</td><td><span class="badge pending">Starting soon</span></td></tr>
+            </table></div>
+          </div>
+          <div class="panel">
+            <h3>Pending payouts</h3>
+            <div class="table-scroll"><table>
+              <tr><th>Member</th><th>Chit</th><th>Amount</th><th>Status</th></tr>
+              <tr><td>Ramesh Kumar</td><td>CHIT-001</td><td>₹4,80,000</td><td><span class="badge pending">Processing</span></td></tr>
+              <tr><td>Suresh Babu</td><td>CHIT-009</td><td>₹2,95,000</td><td><span class="badge pending">Pending</span></td></tr>
+              <tr><td>Lakshmi Devi</td><td>CHIT-014</td><td>₹1,10,000</td><td><span class="badge paid">Paid</span></td></tr>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEMBERS -->
+      <div class="page" id="page-members">
+        <div class="toolbar">
+          <div class="search" style="width:280px;">🔍 Search by name, mobile, code</div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-outline">Export</button>
+            <button class="btn btn-gold" id="addMemberBtn">+ Add member</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="table-scroll"><table>
+            <thead><tr><th>Code</th><th>Name</th><th>Mobile</th><th>Status</th><th></th></tr></thead>
+            <tbody id="membersTableBody">
+              <tr><td>MEM-0231</td><td>Ramesh Kumar</td><td>98410 23456</td><td><span class="badge active">Active</span></td><td><button class="btn btn-outline">View</button></td></tr>
+              <tr><td>MEM-0232</td><td>Lakshmi Devi</td><td>90031 88221</td><td><span class="badge active">Active</span></td><td><button class="btn btn-outline">View</button></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- CHITS -->
+      <div class="page" id="page-chits">
+        <div class="toolbar">
+          <div class="tabs">
+            <div class="tab active">All</div><div class="tab">Fixed</div><div class="tab">Dividend</div><div class="tab">Vacant</div><div class="tab">Completed</div>
+          </div>
+          <button class="btn btn-gold">+ New chit</button>
+        </div>
+        <div class="grid grid-3">
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;"><b>CHIT-001</b><span class="badge active">Running</span></div>
+            <div style="font-size:22px;font-weight:700;font-family:'Baloo 2';margin:8px 0 2px;">₹5,00,000</div>
+            <div style="color:var(--text-soft);font-size:13px;">20 months · Round 8/20</div>
+            <div class="progress"><div style="width:40%"></div></div>
+          </div>
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;"><b>CHIT-014</b><span class="badge active">Running</span></div>
+            <div style="font-size:22px;font-weight:700;font-family:'Baloo 2';margin:8px 0 2px;">₹1,00,000</div>
+            <div style="color:var(--text-soft);font-size:13px;">10 months · Round 3/10</div>
+            <div class="progress"><div style="width:30%"></div></div>
+          </div>
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;"><b>CHIT-027</b><span class="badge pending">2 vacancies</span></div>
+            <div style="font-size:22px;font-weight:700;font-family:'Baloo 2';margin:8px 0 2px;">₹10,00,000</div>
+            <div style="color:var(--text-soft);font-size:13px;">25 months · Not started</div>
+            <div class="progress"><div style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUCTIONS -->
+      <div class="page" id="page-auctions">
+        <div class="tabs" style="margin-bottom:16px;">
+          <div class="tab active">Live</div><div class="tab">Upcoming</div><div class="tab">Completed</div><div class="tab">History</div>
+        </div>
+        <div class="auction-stage">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#B9BADD;" id="auctionLabel">CHIT-001 · Round 08</div>
+              <div style="font-size:20px;font-weight:600;font-family:'Baloo 2';" id="auctionChitValue">₹5,00,000 chit value</div>
+            </div>
+            <div class="live-tag" id="auctionLiveTag"><span class="pulse"></span>LIVE</div>
+          </div>
+          <div class="auction-value" id="auctionTopBid">₹1,20,000</div>
+          <div style="color:#B9BADD;font-size:13px;margin-bottom:16px;">Current highest bid <span id="socketStatus" style="opacity:.7;">(demo data)</span></div>
+          <div id="bidRowsContainer">
+            <div class="bid-row"><div style="display:flex;align-items:center;gap:10px;"><div class="bid-rank top">1</div>Ramesh Kumar</div><b>₹1,20,000</b></div>
+            <div class="bid-row"><div style="display:flex;align-items:center;gap:10px;"><div class="bid-rank">2</div>Kumar Selvam</div>₹1,15,000</div>
+            <div class="bid-row"><div style="display:flex;align-items:center;gap:10px;"><div class="bid-rank">3</div>Suresh Babu</div>₹1,10,000</div>
+          </div>
+          <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+            <input id="bidMemberId" placeholder="member_id" style="border-radius:8px;border:none;padding:9px 12px;width:150px;">
+            <input id="bidAmountInput" placeholder="bid amount" style="border-radius:8px;border:none;padding:9px 12px;width:110px;">
+            <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3);" id="placeBidBtn">Place bid</button>
+            <button class="btn btn-gold" id="confirmWinnerBtn">Confirm winner</button>
+            <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3);" id="pauseAuctionBtn">Pause auction</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAYMENTS -->
+      <div class="page" id="page-payments">
+        <div class="grid grid-3" style="margin-bottom:20px;">
+          <div class="stat-card"><div class="label">Today's collection</div><div class="value">₹4,82,000</div></div>
+          <div class="stat-card"><div class="label">Monthly collection</div><div class="value">₹68,40,000</div></div>
+          <div class="stat-card"><div class="label">Overdue amount</div><div class="value" style="color:var(--vermillion-dark)">₹18,60,000</div></div>
+        </div>
+        <div class="panel">
+          <div class="toolbar" style="margin-bottom:10px;">
+            <h3 style="margin:0;">Recent payments</h3>
+            <button class="btn btn-ink">Record payment</button>
+          </div>
+          <div class="table-scroll"><table>
+            <tr><th>Receipt</th><th>Member</th><th>Chit</th><th>Amount</th><th>Method</th><th>Status</th></tr>
+            <tr><td>RC-8821</td><td>Ramesh Kumar</td><td>CHIT-001</td><td>₹25,000</td><td>UPI</td><td><span class="badge paid">Paid</span></td></tr>
+            <tr><td>RC-8822</td><td>Priya Raman</td><td>CHIT-014</td><td>₹10,000</td><td>Cash</td><td><span class="badge paid">Paid</span></td></tr>
+            <tr><td>RC-8823</td><td>Suresh Babu</td><td>CHIT-009</td><td>₹15,000</td><td>Bank transfer</td><td><span class="badge pending">Partial</span></td></tr>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- DUES -->
+      <div class="page" id="page-dues">
+        <div class="panel">
+          <div class="toolbar" style="margin-bottom:10px;">
+            <h3 style="margin:0;">Outstanding dues</h3>
+            <button class="btn btn-outline">Send reminders</button>
+          </div>
+          <div class="table-scroll"><table>
+            <tr><th>Member</th><th>Chit</th><th>Due date</th><th>Amount</th><th>Status</th><th></th></tr>
+            <tr><td>Suresh Babu</td><td>CHIT-009</td><td>28 Aug 2026</td><td>₹15,000</td><td><span class="badge overdue">Overdue</span></td><td><button class="btn btn-outline">Remind</button></td></tr>
+            <tr><td>Kumar Selvam</td><td>CHIT-001</td><td>01 Sep 2026</td><td>₹25,000</td><td><span class="badge pending">Due soon</span></td><td><button class="btn btn-outline">Remind</button></td></tr>
+            <tr><td>Lakshmi Devi</td><td>CHIT-014</td><td>03 Sep 2026</td><td>₹10,000</td><td><span class="badge pending">Due soon</span></td><td><button class="btn btn-outline">Remind</button></td></tr>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- PAYOUTS -->
+      <div class="page" id="page-payouts">
+        <div class="tabs" style="margin-bottom:16px;">
+          <div class="tab active">Pending</div><div class="tab">Processing</div><div class="tab">Paid</div><div class="tab">Failed</div>
+        </div>
+        <div class="panel">
+          <div class="table-scroll"><table>
+            <tr><th>Member</th><th>Chit</th><th>Amount</th><th>Account</th><th>Status</th><th></th></tr>
+            <tr><td>Ramesh Kumar</td><td>CHIT-001</td><td>₹4,80,000</td><td>HDFC •• 4432</td><td><span class="badge pending">Pending</span></td><td><button class="btn btn-gold">Approve</button></td></tr>
+            <tr><td>Suresh Babu</td><td>CHIT-009</td><td>₹2,95,000</td><td>UPI: suresh@okhdfc</td><td><span class="badge pending">Pending</span></td><td><button class="btn btn-gold">Approve</button></td></tr>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="page" id="page-reports">
+        <div class="grid grid-2">
+          <div class="panel"><h3>Cash flow — this month</h3><div style="color:var(--text-soft);font-size:13px;">Income ₹68,40,000 · Payouts ₹52,10,000 · Net ₹16,30,000</div></div>
+          <div class="panel"><h3>Dues summary</h3><div style="color:var(--text-soft);font-size:13px;">312 members overdue · ₹18,60,000 outstanding</div></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="grid grid-2" style="margin-bottom:20px;">
+          <div class="panel"><h3>Business settings</h3><div style="color:var(--text-soft);font-size:13px;">Business name, late fee rules, WhatsApp templates, reminder schedules.</div></div>
+          <div class="panel"><h3>Staff and permissions</h3><div style="color:var(--text-soft);font-size:13px;">Manage roles: Admin, Manager, Staff, Accountant.</div></div>
+        </div>
+        <div class="panel">
+          <h3>Permission matrix</h3>
+          <div class="table-scroll"><table class="permission-table">
+            <tr><th>Feature</th><th>Admin</th><th>Manager</th><th>Staff</th><th>Accountant</th><th>Customer</th></tr>
+            <tr><td>Members</td><td>Full</td><td>Full</td><td>Limited</td><td>View</td><td>Own</td></tr>
+            <tr><td>Chits</td><td>Full</td><td>Full</td><td>View</td><td>View</td><td>Own</td></tr>
+            <tr><td>Auctions</td><td>Full</td><td>Full</td><td>View</td><td>View</td><td>Own</td></tr>
+            <tr><td>Payments</td><td>Full</td><td>Full</td><td>Add</td><td>Full</td><td>Own</td></tr>
+            <tr><td>Payouts</td><td>Full</td><td>Approve</td><td>—</td><td>Full</td><td>Own</td></tr>
+            <tr><td>Settings</td><td>Full</td><td>Limited</td><td>—</td><td>Limited</td><td>—</td></tr>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMER VIEW -->
+      <div class="page" id="page-customer">
+        <div class="welcome-banner">
+          <div class="greet">Welcome back, <span>Ramesh</span></div>
+          <div style="color:#C9CAE8;font-size:13.5px;margin-top:4px;">Here's where your chits stand today.</div>
+        </div>
+        <div class="grid grid-4" style="margin-bottom:22px;">
+          <div class="stat-card"><div class="label">Active chits</div><div class="value">2</div></div>
+          <div class="stat-card"><div class="label">Today's due</div><div class="value">₹25,000</div></div>
+          <div class="stat-card"><div class="label">Pending due</div><div class="value" style="color:var(--vermillion-dark)">₹25,000</div></div>
+          <div class="stat-card"><div class="label">Next auction</div><div class="value" style="font-size:18px;">12 Sep</div></div>
+        </div>
+        <div class="section-title">My chits</div>
+        <div class="grid grid-2">
+          <div class="chit-card">
+            <div class="top"><b>CHIT-001</b><span class="badge active">Running</span></div>
+            <div style="font-size:20px;font-weight:700;font-family:'Baloo 2';">₹5,00,000</div>
+            <div style="color:var(--text-soft);font-size:13px;">Round 8 of 20 · Next due 12 Sep</div>
+            <div class="progress"><div style="width:40%"></div></div>
+          </div>
+          <div class="chit-card">
+            <div class="top"><b>CHIT-014</b><span class="badge active">Running</span></div>
+            <div style="font-size:20px;font-weight:700;font-family:'Baloo 2';">₹1,00,000</div>
+            <div style="color:var(--text-soft);font-size:13px;">Round 3 of 10 · Next due 03 Sep</div>
+            <div class="progress"><div style="width:30%"></div></div>
+          </div>
+        </div>
+        <div class="section-title">Recent payments</div>
+        <div class="panel">
+          <div class="table-scroll"><table>
+            <tr><th>Chit</th><th>Amount</th><th>Date</th><th>Status</th></tr>
+            <tr><td>CHIT-001</td><td>₹25,000</td><td>05 Aug 2026</td><td><span class="badge paid">Paid</span></td></tr>
+            <tr><td>CHIT-014</td><td>₹10,000</td><td>03 Aug 2026</td><td><span class="badge paid">Paid</span></td></tr>
+          </table></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const navItems = document.querySelectorAll('.navitem');
+  const pages = document.querySelectorAll('.page');
+  const pageTitle = document.getElementById('pageTitle');
+  const titles = {
+    dashboard:'Dashboard', members:'Members', chits:'Chits', auctions:'Live auctions',
+    payments:'Payments', dues:'Dues', payouts:'Payouts', reports:'Reports', settings:'Settings'
+  };
+  navItems.forEach(item=>{
+    item.addEventListener('click', ()=>{
+      navItems.forEach(n=>n.classList.remove('active'));
+      item.classList.add('active');
+      pages.forEach(p=>p.classList.remove('active'));
+      document.getElementById('page-'+item.dataset.page).classList.add('active');
+      pageTitle.textContent = titles[item.dataset.page];
+      closeSidebar();
+    });
+  });
+
+  // ---- Mobile sidebar drawer ----
+  const sidebar = document.getElementById('adminSidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  function openSidebar(){ sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); }
+  function closeSidebar(){ sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); }
+  hamburgerBtn.addEventListener('click', ()=> sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
+  sidebarOverlay.addEventListener('click', closeSidebar);
+
+  const btnAdmin = document.getElementById('btnAdminMode');
+  const btnCustomer = document.getElementById('btnCustomerMode');
+  btnCustomer.addEventListener('click', ()=>{
+    btnCustomer.classList.add('active');
+    btnAdmin.classList.remove('active');
+    pages.forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-customer').classList.add('active');
+    pageTitle.textContent = 'My dashboard';
+    navItems.forEach(n=>n.classList.remove('active'));
+    closeSidebar();
+  });
+  btnAdmin.addEventListener('click', ()=>{
+    btnAdmin.classList.add('active');
+    btnCustomer.classList.remove('active');
+    pages.forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-dashboard').classList.add('active');
+    pageTitle.textContent = 'Dashboard';
+    navItems.forEach(n=>n.classList.remove('active'));
+    navItems[0].classList.add('active');
+    closeSidebar();
+  });
+
+  // ================= ChitPro API integration =================
+  let API_BASE = document.getElementById('apiBaseInput').value;
+  document.getElementById('apiBaseInput').addEventListener('change', (e)=> API_BASE = e.target.value);
+
+  let authToken = null;
+  let currentUser = null;
+  let demoMode = false;
+  let socket = null;
+  let currentAuctionId = null; // set this to a real auction_round_id once you have live data
+
+  async function apiFetch(path, options = {}) {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: 'Bearer ' + authToken } : {}),
+        ...(options.headers || {})
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'flex';
+    if (currentUser) {
+      const initials = (currentUser.name || 'U').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      document.getElementById('userAvatar').textContent = initials;
+      if (currentUser.role === 'CUSTOMER') btnCustomer.click(); else btnAdmin.click();
+    }
+    if (!demoMode) {
+      loadDashboard();
+      loadMembers();
+      connectSocket();
+    }
+  }
+
+  // ---- Admin login ----
+  document.getElementById('tabAdminLogin').addEventListener('click', ()=>{
+    document.getElementById('tabAdminLogin').classList.add('active');
+    document.getElementById('tabCustomerLogin').classList.remove('active');
+    document.getElementById('adminLoginForm').style.display = 'block';
+    document.getElementById('customerLoginForm').style.display = 'none';
+  });
+  document.getElementById('tabCustomerLogin').addEventListener('click', ()=>{
+    document.getElementById('tabCustomerLogin').classList.add('active');
+    document.getElementById('tabAdminLogin').classList.remove('active');
+    document.getElementById('customerLoginForm').style.display = 'block';
+    document.getElementById('adminLoginForm').style.display = 'none';
+  });
+
+  document.getElementById('adminLoginBtn').addEventListener('click', async ()=>{
+    const mobile = document.getElementById('adminMobile').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    try {
+      const data = await apiFetch('/auth/admin/login', { method:'POST', body:{ mobile, password }});
+      authToken = data.token;
+      currentUser = data.user;
+      demoMode = false;
+      showApp();
+    } catch (err) {
+      errEl.textContent = err.message + ' — check the API address, or use demo mode below.';
+    }
+  });
+
+  document.getElementById('sendOtpBtn').addEventListener('click', async ()=>{
+    const mobile = document.getElementById('custMobile').value.trim();
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    try {
+      await apiFetch('/auth/customer/send-otp', { method:'POST', body:{ mobile }});
+      document.getElementById('otpStep').style.display = 'block';
+    } catch (err) {
+      errEl.textContent = err.message;
+    }
+  });
+
+  document.getElementById('verifyOtpBtn').addEventListener('click', async ()=>{
+    const mobile = document.getElementById('custMobile').value.trim();
+    const code = document.getElementById('custOtp').value.trim();
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    try {
+      const data = await apiFetch('/auth/customer/verify-otp', { method:'POST', body:{ mobile, code }});
+      authToken = data.token;
+      currentUser = { name: data.member.name, role: 'CUSTOMER' };
+      demoMode = false;
+      showApp();
+    } catch (err) {
+      errEl.textContent = err.message;
+    }
+  });
+
+  document.getElementById('demoModeLink').addEventListener('click', ()=>{
+    demoMode = true;
+    currentUser = { name: 'Ramesh Admin', role: 'ADMIN' };
+    showApp();
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', ()=>{
+    authToken = null; currentUser = null; demoMode = false;
+    if (socket) socket.disconnect();
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+  });
+
+  // ---- Dashboard ----
+  async function loadDashboard(){
+    try {
+      const d = await apiFetch('/reports/dashboard');
+      document.getElementById('statTotalChits').textContent = d.totalChits;
+      document.getElementById('statTotalMembers').textContent = d.totalMembers.toLocaleString('en-IN');
+      document.getElementById('statTodayCollection').textContent = '₹' + Number(d.todaysCollection).toLocaleString('en-IN');
+      document.getElementById('statPendingDues').textContent = '₹' + Number(d.pendingDues).toLocaleString('en-IN');
+      document.getElementById('statPendingDueMembers').textContent = d.pendingDueMembers + ' members';
+    } catch (err) {
+      console.warn('Dashboard API not reachable, showing sample data:', err.message);
+    }
+  }
+
+  // ---- Members ----
+  async function loadMembers(){
+    try {
+      const d = await apiFetch('/members');
+      const body = document.getElementById('membersTableBody');
+      body.innerHTML = d.members.map(m => `
+        <tr>
+          <td>${m.member_code}</td>
+          <td>${m.name}</td>
+          <td>${m.mobile}</td>
+          <td><span class="badge ${m.status === 'ACTIVE' ? 'active' : 'overdue'}">${m.status}</span></td>
+          <td><button class="btn btn-outline" onclick="viewMember('${m.id}')">View</button></td>
+        </tr>`).join('');
+    } catch (err) {
+      console.warn('Members API not reachable, showing sample data:', err.message);
+    }
+  }
+  window.viewMember = (id) => alert('Member id: ' + id + '\n(wire this up to a detail view / route)');
+
+  document.getElementById('addMemberBtn').addEventListener('click', async ()=>{
+    if (demoMode) { alert('Connect a backend to add real members.'); return; }
+    const name = prompt('Member name');
+    if (!name) return;
+    const mobile = prompt('Mobile number');
+    if (!mobile) return;
+    try {
+      await apiFetch('/members', { method:'POST', body:{ name, mobile }});
+      loadMembers();
+    } catch (err) {
+      alert('Could not add member: ' + err.message);
+    }
+  });
+
+  // ---- Live auctions via Socket.IO ----
+  function connectSocket(){
+    socket = io(API_BASE.replace('/api',''), { auth: { token: authToken } });
+    socket.on('connect', ()=> document.getElementById('socketStatus').textContent = '(live)');
+    socket.on('disconnect', ()=> document.getElementById('socketStatus').textContent = '(disconnected)');
+    if (currentAuctionId) socket.emit('auction:join', currentAuctionId);
+
+    socket.on('auction:newBid', (bid) => {
+      document.getElementById('auctionTopBid').textContent = '₹' + Number(bid.bid_amount).toLocaleString('en-IN');
+      loadBids();
+    });
+    socket.on('auction:winnerConfirmed', (result) => {
+      alert('Winner confirmed! Winning bid: ₹' + Number(result.winning_bid).toLocaleString('en-IN'));
+    });
+  }
+
+  async function loadBids(){
+    if (!currentAuctionId) return;
+    try {
+      const d = await apiFetch(`/auctions/${currentAuctionId}/bids`);
+      const container = document.getElementById('bidRowsContainer');
+      container.innerHTML = d.bids.map((b,i) => `
+        <div class="bid-row">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="bid-rank ${i===0 ? 'top' : ''}">${i+1}</div>${b.member_name}
+          </div>
+          ${i===0 ? '<b>' : ''}₹${Number(b.bid_amount).toLocaleString('en-IN')}${i===0 ? '</b>' : ''}
+        </div>`).join('');
+    } catch (err) { console.warn(err.message); }
+  }
+
+  document.getElementById('placeBidBtn').addEventListener('click', async ()=>{
+    if (demoMode || !currentAuctionId) { alert('Set currentAuctionId and connect a backend to place real bids.'); return; }
+    const member_id = document.getElementById('bidMemberId').value.trim();
+    const bid_amount = Number(document.getElementById('bidAmountInput').value);
+    try {
+      await apiFetch(`/auctions/${currentAuctionId}/bids`, { method:'POST', body:{ member_id, bid_amount }});
+    } catch (err) { alert(err.message); }
+  });
+
+  document.getElementById('confirmWinnerBtn').addEventListener('click', async ()=>{
+    if (demoMode || !currentAuctionId) { alert('Set currentAuctionId and connect a backend first.'); return; }
+    try {
+      await apiFetch(`/auctions/${currentAuctionId}/confirm-winner`, { method:'POST' });
+    } catch (err) { alert(err.message); }
+  });
+
+  document.getElementById('pauseAuctionBtn').addEventListener('click', async ()=>{
+    if (demoMode || !currentAuctionId) { alert('Set currentAuctionId and connect a backend first.'); return; }
+    try {
+      await apiFetch(`/auctions/${currentAuctionId}/pause`, { method:'POST' });
+    } catch (err) { alert(err.message); }
+  });
+</script>
+</body>
+</html>
